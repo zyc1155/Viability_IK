@@ -3,16 +3,18 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 import numpy as np
 
-import py_viability_ik
+import py_viability_ik  # import the python wrapper of viability_ik
 
 dt = 0.005  # sampling interval
-ratio_simulation_control = 10  # sampling interval / control_interval
+ratio_simulation_control = 10  #  the lower the value, the higher the plot update frequency, and the higher the needed computation power
 v_lim = np.array([1, 2])  # \bm{v}}^{\mathrm{lim}}
 a_lim = np.array([15, 12])  # \bm{a}}^{\mathrm{lim}}
-p_ref = np.array([-0.5, 1.5])  # target position
+p_ref = np.array([-1.0, 0.8])  # initial target position
 
 
 simulation_time = 0
+
+# compound joint constraint parameters:
 A = np.array(
     [
         [1.38637, 1],
@@ -25,8 +27,9 @@ A = np.array(
 )
 t_q_lim = np.array([3.73353, -1, 0, np.pi / 2, -0.01, 6.95302])
 
+# initial values
 q_ref = np.zeros(2)
-q0 = np.array([0, np.pi / 2])
+q0 = np.array([1.45, 1.18])
 q1 = np.zeros(2)
 dq0 = np.zeros(2)
 dq1 = np.zeros(2)
@@ -34,16 +37,31 @@ ddq1 = np.zeros(2)
 position1, position2 = np.zeros(2)
 
 l1, l2 = 1.0, 1.0  # Lengths of the robot arm segments
-base_x = [-1.0, -1.0, 1.5, 1.5]
-base_y = [1, 0, 0, 0.5]
+base_x = [-1.0, -1.0, 1.5, 1.5]  # obstacle parameter
+base_y = [1, 0, 0, 0.5]  # obstacle parameter
+
+ax1_lim = [[-1.6, 1.9], [-1.0, 2.5]]
+ax2_lim = [[-0.1, 2.4], [-0.5, 2.0]]
 
 fig = plt.figure(figsize=(16, 8))
 gs = fig.add_gridspec(2, 2, height_ratios=[2, 1])
+
 
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[1, 0])
 ax4 = fig.add_subplot(gs[1, 1])
+
+#set legend
+ax1.scatter([], [], color="red", label="Taregt position")
+ax1.plot([], [], "blue", label="Joint 1")
+ax1.plot([], [], "green", label="Joint 2")
+fig.legend(
+    loc='center',            # Place the legend at the center
+    bbox_to_anchor=(0.5, 0.5),  # Center it in the figure
+    frameon=True,            # Optional: add a frame around the legend
+    fontsize=12              # Adjust font size
+)
 
 ax_button = plt.axes([0.45, 0.01, 0.1, 0.05])  # Adjust the position and size as needed
 btn = Button(ax_button, "Pause/Resume")
@@ -168,7 +186,8 @@ def draw_robot(position1, position2):
     robot_plot[1].set_data(
         [0, position1[0], position2[0]], [0, position1[1], position2[1]]
     )
-    robot_plot[2].set_offsets([np.zeros(2), position1])
+    robot_plot[2].set_offsets([np.zeros(2)])
+    robot_plot[3].set_offsets([position1])
 
 
 def init_plot():
@@ -184,18 +203,47 @@ def init_plot():
         index = index + 1
     divided_plot_point_x, divided_plot_point_y = obtain_poly(divided_task_points)
 
-    ax1.set_xlim(-2, 2)
-    ax1.set_ylim(-1.5, 2.5)
-    ax2.set_xlim(-0.5, np.pi)
-    ax2.set_ylim(-0.5, np.pi)
+    ax1.set_xlabel(r"$x$")
+    ax1.set_ylabel(r"$y$")
+    ax2.set_xlabel(r"$q_1$")
+    ax2.set_ylabel(r"$q_2$")
+    ax3.set_xlabel(r"$t$")
+    ax3.set_ylabel(r"$\dot{q}_1,\dot{q}_2$")
+    ax4.set_xlabel(r"$t$")
+    ax4.set_ylabel(r"$\ddot{q}_1,\ddot{q}_2$")
+
+    ax1.set_xlim(ax1_lim[0])
+    ax1.set_ylim(ax1_lim[1])
+    ax2.set_xlim(ax2_lim[0])
+    ax2.set_ylim(ax2_lim[1])
 
     ax1.set_aspect("equal")
     ax2.set_aspect("equal")
 
-    line.append(ax1.scatter([], [], color="red"))
+    ax3.set_yticks(
+        [
+            -max(v_lim[0], v_lim[1]),
+            -min(v_lim[0], v_lim[1]),
+            0,
+            min(v_lim[0], v_lim[1]),
+            max(v_lim[0], v_lim[1]),
+        ]
+    )
+
+    ax4.set_yticks(
+        [
+            -max(a_lim[0], a_lim[1]),
+            -min(a_lim[0], a_lim[1]),
+            0,
+            min(a_lim[0], a_lim[1]),
+            max(a_lim[0], a_lim[1]),
+        ]
+    )
+
+    line.append(ax1.scatter([], [], color="red"))  # target position
     line.append(ax2.scatter([], [], color="red"))
-    line.append(ax2.scatter([], [], color="green"))
-    line.append(ax2.plot([], [], "black")[0])
+    line.append(ax2.scatter([], [], color="cyan"))  # joint state
+    line.append(ax2.plot([], [], "k--")[0])  # compound joint constraint
     line.append(
         ax1.text(
             1.0,
@@ -205,34 +253,31 @@ def init_plot():
             verticalalignment="top",
             transform=ax1.transAxes,
         )
-    )
-    line.append(ax1.plot([], [], "g--")[0])
+    )  # simulation time
+    line.append(ax1.plot([], [], "k--")[0])  # end-effector motion range
+    line.append(ax2.plot([], [], "b:")[0])  # joint state 1 ,x
+    line.append(ax2.plot([], [], "g:")[0])  # joint state 2 ,x
 
-    line2.append(ax3.plot([], [], "blue")[0])
-    line2.append(ax3.plot([], [], "green")[0])
-    line2.append(ax4.plot([], [], "blue")[0])
-    line2.append(ax4.plot([], [], "green")[0])
+    line2.append(ax3.plot([], [], "blue")[0])  # dq1
+    line2.append(ax3.plot([], [], "green")[0])  # dq2
+    line2.append(ax4.plot([], [], "blue")[0])  # ddq1
+    line2.append(ax4.plot([], [], "green")[0])  # ddq2
 
-    robot_plot.append(ax1.plot([], [], "black")[0])
-    robot_plot.append(ax1.plot([], [], "purple")[0])
-    robot_plot.append(
-        ax1.scatter([], [], facecolors="none", edgecolors="green")
-    )  # facecolors='none', edgecolors='blue' // color="green"
-    return (
-        line[0],
-        line[1],
-        line[2],
-        line[3],
-        line[4],
-        line[5],
-        line2[0],
-        line2[1],
-        line2[2],
-        line2[3],
-        robot_plot[0],
-        robot_plot[1],
-        robot_plot[2],
-    )
+    line2.append(ax3.plot([], [], "b:")[0])  # v_lim_1
+    line2.append(ax3.plot([], [], "g:")[0])  # v_lim_2
+    line2.append(ax3.plot([], [], "b:")[0])  # -v_lim_1
+    line2.append(ax3.plot([], [], "g:")[0])  # -v_lim_2
+
+    line2.append(ax4.plot([], [], "b:")[0])  # a_lim_1
+    line2.append(ax4.plot([], [], "g:")[0])  # a_lim_2
+    line2.append(ax4.plot([], [], "b:")[0])  # -a_lim_1
+    line2.append(ax4.plot([], [], "g:")[0])  # -a_lim_2
+
+    robot_plot.append(ax1.plot([], [], "black")[0])  # obstacle
+    robot_plot.append(ax1.plot([], [], "purple")[0])  # robot arm
+    robot_plot.append(ax1.scatter([], [], facecolors="blue"))  # robot joint1
+    robot_plot.append(ax1.scatter([], [], facecolors="green"))  # robot joint2
+    return (*line[:8], *line2[:12], *robot_plot[:4])
 
 
 def update(frame):
@@ -255,16 +300,28 @@ def update(frame):
             print("Failed at", simulation_time, "!")
 
     line[0].set_offsets([p_ref])
-    line[1].set_offsets([q_ref])
+    # line[1].set_offsets([q_ref])
     line[2].set_offsets([q1])
     line[3].set_data(point_x, point_y)
     line[4].set_text(f"Time: {simulation_time:.1f} s")
     line[5].set_data(divided_plot_point_x, divided_plot_point_y)
+    line[6].set_data([q1[0], q1[0]], [ax2_lim[1][0], q1[1]])
+    line[7].set_data([ax2_lim[0][0], q1[0]], [q1[1], q1[1]])
 
     line2[0].set_data(output_data[0], output_data[1])
     line2[1].set_data(output_data[0], output_data[2])
     line2[2].set_data(output_data[0], output_data[3])
     line2[3].set_data(output_data[0], output_data[4])
+
+    line2[4].set_data([output_data[0][0], output_data[0][-1]], [v_lim[0], v_lim[0]])
+    line2[5].set_data([output_data[0][0], output_data[0][-1]], [v_lim[1], v_lim[1]])
+    line2[6].set_data([output_data[0][0], output_data[0][-1]], [-v_lim[0], -v_lim[0]])
+    line2[7].set_data([output_data[0][0], output_data[0][-1]], [-v_lim[1], -v_lim[1]])
+
+    line2[8].set_data([output_data[0][0], output_data[0][-1]], [a_lim[0], a_lim[0]])
+    line2[9].set_data([output_data[0][0], output_data[0][-1]], [a_lim[1], a_lim[1]])
+    line2[10].set_data([output_data[0][0], output_data[0][-1]], [-a_lim[0], -a_lim[0]])
+    line2[11].set_data([output_data[0][0], output_data[0][-1]], [-a_lim[1], -a_lim[1]])
 
     ax3.relim()
     ax3.autoscale()
@@ -272,21 +329,7 @@ def update(frame):
     ax4.autoscale()
 
     draw_robot(position1, position2)
-    return (
-        line[0],
-        line[1],
-        line[2],
-        line[3],
-        line[4],
-        line[5],
-        line2[0],
-        line2[1],
-        line2[2],
-        line2[3],
-        robot_plot[0],
-        robot_plot[1],
-        robot_plot[2],
-    )
+    return (*line[:8], *line2[:12], *robot_plot[:4])
 
 
 def on_click(event):
@@ -318,3 +361,4 @@ ani = FuncAnimation(
 )
 
 plt.show()
+
