@@ -4,7 +4,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(pyviability_ik, m)
+PYBIND11_MODULE(py_viability_ik, m)
 {
      py::class_<VIABILITY_IK>(m, "VIABILITY_IK")
          .def(py::init<>())

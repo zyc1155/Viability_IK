@@ -3,14 +3,16 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button
 import numpy as np
 
-import pyviability_ik
+import py_viability_ik
 
-dt = 0.005
-ratio_simulation_control = 10  # simulation_interval / control_interval
+dt = 0.005  # sampling interval
+ratio_simulation_control = 10  # sampling interval / control_interval
+v_lim = np.array([1, 2])  # \bm{v}}^{\mathrm{lim}}
+a_lim = np.array([15, 12])  # \bm{a}}^{\mathrm{lim}}
+p_ref = np.array([-0.5, 1.5])  # target position
+
+
 simulation_time = 0
-
-# A = np.array([[-1.0, 0.0], [1.0, 0.0], [0.0, -1.0], [0.0, 1.0]])
-# t_q_max = np.array([0.0, np.pi / 2, -0.0, np.pi * 2 / 3])
 A = np.array(
     [
         [1.38637, 1],
@@ -21,12 +23,8 @@ A = np.array(
         [2.98413, 1],
     ]
 )
-t_q_max = np.array([3.73353, -1, 0, np.pi / 2, -0.01, 6.95302])
+t_q_lim = np.array([3.73353, -1, 0, np.pi / 2, -0.01, 6.95302])
 
-v_lim = np.array([3.0, 4.0])
-a_lim = np.array([10, 15])
-
-p_ref = np.array([-0.5, 1.5])
 q_ref = np.zeros(2)
 q0 = np.array([0, np.pi / 2])
 q1 = np.zeros(2)
@@ -57,7 +55,7 @@ line2 = []
 
 output_data = [[], [], [], [], []]
 
-viability_ik = pyviability_ik.VIABILITY_IK(A, t_q_max, v_lim, a_lim, dt)
+vik = py_viability_ik.VIABILITY_IK(A, t_q_lim, v_lim, a_lim, dt)
 
 
 def obtain_poly(pt):
@@ -134,8 +132,8 @@ def jacobian_matrix(q0):
 def differential_inverse_kinematics(p_ref, q0, dq0, p0):
     dp_d = 5.0 * (p_ref - p0)
     J = jacobian_matrix(q0)
-    success = viability_ik.solve(J, dp_d, q0, dq0)
-    return success, viability_ik.result()
+    success = vik.solve(J, dp_d, q0, dq0)
+    return success, vik.result()
 
 
 def forward_kinematics(q1):

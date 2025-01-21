@@ -1,6 +1,6 @@
 #include "viability_ik.h"
-#include "scip_exception.hpp"
-#include "eigen-cdd/Polyhedron.h"
+#include "scip_exception.h"
+#include "eigen-cddlib/Polyhedron.h"
 
 VIABILITY_IK::VIABILITY_IK()
 {

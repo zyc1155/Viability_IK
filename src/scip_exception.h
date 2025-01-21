@@ -10,7 +10,7 @@
 /*                                                                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/**@file scip_exception.hpp
+/**@file scip_exception.h
  * @brief exception handling for SCIP
  * @author Cornelius Schwarz
  */

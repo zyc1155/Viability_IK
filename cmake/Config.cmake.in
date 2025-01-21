@@ -1,0 +1,12 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(cdd REQUIRED)
+find_dependency(CasADi REQUIRED)
+find_dependency(osqp REQUIRED)
+find_dependency(SCIP REQUIRED)
+
+include ("${CMAKE_CURRENT_LIST_DIR}/viability_ikTargets.cmake")
+
+check_required_components(viability_ik)

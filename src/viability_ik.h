@@ -2,7 +2,7 @@
 
 #include <Eigen/Eigen>
 #include "casadi/casadi.hpp"
-#include "MILPSolver.hpp"
+#include "MILPSolver.h"
 
 using namespace Eigen;
 
@@ -57,7 +57,7 @@ private:
     bool initialized;
     int m;            // \f$ m \f$
     int n;            // \f$ n \f$
-    int cart_h_S;     // Cardinality of \f$ \hat{\mathcal{S}} \f$
+    int cart_h_S;     // Cardinality of \f$ \mathcal{S} \f$
     int non_zero_h_S; // Total number of non-zeros of all elements belonging to \f$ \hat{\mathcal{S}} \f$
     double dt;        // Sampling time \f$ T \f$
 

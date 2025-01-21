@@ -1,5 +1,5 @@
-#include "MILPSolver.hpp"
-#include "scip_exception.hpp"
+#include "MILPSolver.h"
+#include "scip_exception.h"
 
 #include <sstream>
 #include <iostream>
