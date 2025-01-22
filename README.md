@@ -1,28 +1,25 @@
 # Viability_IK
 ## Introduction
-``Viability_IK`` is a library that implements a quadratic programming (QP)-based inverse kinematics (IK) method. It simultaneously accounts for physical joint limits (_including joint range, velocity, and acceleration constraints_) and whole-body collision avoidance (_including self-collisions and collisions with static obstacles_), which can be ensured by satisfying the following constraint:
+``Viability_IK`` is a library that implements a quadratic programming (QP)-based inverse kinematics (IK) method. It simultaneously accounts for physical joint limits (_including joint range, velocity, and acceleration constraints_) and whole-body collision avoidance (_including self-collisions and collisions with static obstacles_), which can be ensured by satisfying the following constraints:
 
-<div style="text-align: center;">
-  <img src="fig/equation.png" alt="fig3" style="width:15%; height:auto;">
-</div>
+<p align="center">
+<img src="fig/equation.png" width="100">
+</p>
 
 These constraints may conflict with each other and result in infeasible solutions of IK, which can subsequently produce unpredictable motions.
-``Viability_IK`` incorporates an additional linear constraint to ensure that the robot state is **viable**, guaranteeing the existence of solutions that do not violate the given constraints.
+``Viability_IK``  ensures that the robot state is **viable**, guaranteeing the existence of solutions that do not violate the given constraints.
 
-It can effectively handle most robots with degrees of freedom (DOFs) below 10 and can also accommodate some robots with higher DOFs under simpler constraints. 
-A simple simulation program is provided in the ``examples`` folder as ``example_py.py``. A screenshot of the simulation is shown in the following GIF.
+A simple simulation program is provided in the ``examples`` folder as ``example_py.py``, which can be launched after the installation of ``Viability_IK``.
+As in the following screenshot of the simulation, the solution of ``Viability_IK`` satisfies all the constraints while tracking the target position (red point). The **position constraint** is indicated by the black dashed polygon in the **top-right** subplot. The **velocity constraint** and **acceleration constraint** are represented by the dot-dashed lines in the **bottom-left** and **bottom-right** subplots, respectively.
 
-As in the GIF, the solution of ``Viability_IK`` satisfies all the constaints while tracking the target position (red point). The **position constraint** is indicated by the black dashed polygon in the **top-right** subplot. The **velocity constraints** and **acceleration constraints** are represented by the dot-dashed lines in the **bottom-left** and **bottom-right** subplots, respectively.
-
-<div style="text-align: center;">
-  <img src="fig/animation.gif" alt="fig2" style="width:80%; height:auto;">
-</div>
-
+<p align="center">
+<img src="fig/animation.gif" width="600">
+</p>
 
 ## Installation within Conda
-``Viability_IK`` relies on several optimization solvers, each with complex dependencies, making it difficult to build from source.
-Therefore, we strongly recommend using the provided Conda environment for installation, as detailed in the tutorial below.
-This approach allows for quick deployment across Windows, macOS, and Linux.
+``Viability_IK`` relies on several complex dependencies, making it difficult to build from source.
+Therefore, we strongly recommend bulid it within Conda environment, as detailed in the tutorial below.
+It allows for quick deployment across Windows, macOS, and Linux.
 For users who prefer to install everything from source, we have listed the dependencies at the end.
 ### Configuration of Conda
 To get started with conda (or mamba) as package managers, you need to have a base conda installation. Please _do not_ use the Anaconda installer, but rather start with [Miniforge](https://github.com/conda-forge/miniforge) that is much more "minimal" installer (_even though some insufficient tests have shown that ``Viability_IK`` can be built within env installed by Anaconda_). This installer will create a "base" environment that contains the package managers conda and mamba. 
@@ -34,12 +31,12 @@ conda activate via_ik
 ```
 **Note:** All subsequent operations must be performed within the activated Conda environment.
 
-In Conda installations managed by Miniforge, ``conda-forge`` is set as the default (and only) channel. It provides all the necessary dependencies across major platforms:
+In Conda installations managed by Miniforge, ``conda-forge`` is set as the default (and only) channel. It provides all the necessary dependencies for ``Viability_IK`` across major platforms:
 ```sh
 conda install scip osqp casadi compilers cmake make git doxygen pkgconfig boost pybind11 matplotlib -c conda-forge -y
 ```
 The package ``compilers`` installed by above commands includes ``MinGW-w64`` for Windows, ``Clang`` for macOS and ``GCC`` for Linux. If you prefer other compilers like ``Ninja`` or ``MSVC``, please install them by yourself.
-### Build and installation in Conda
+### Build and installation of Viability_IK
 The Build and installation of ``Viability_IK`` in Conda can be performed using the following standard CMake procedure:
 ```sh
 git clone --recursive https://github.com/zyc1155/Viability_IK.git
@@ -59,11 +56,11 @@ The ``examples`` folder, located in the root directory, contains two example fil
 ### Example for C++
 An executable ``viability_ik_example_cxx``  will be installed into ``${CONDA_PREFIX}/bin`` on Unix-like systems or ``${CONDA_PREFIX}/Library/bin`` on Windows. This executable is generated from  ``example_cxx.cpp``, which can be utilized to test the installation of the shared library ``viability_ik`` and as an example of the usage of the library. Please run it from a terminal with the corresponding Conda env activated.
 ### Example for Python
-You can launch ``example_py.py`` through an activated Conda env to enjoy the simulation of a two-DOF robot. The interface is written based on [Matplotlib](https://github.com/matplotlib/matplotlib). You can set the target position in realtime by clicking the top-left sub-plot, and pause or resuse the simulation by clicking the corresponding button.
+You can launch ``example_py.py`` through an activated Conda env to enjoy the simulation of a two-DOF robot. The interface is written based on [Matplotlib](https://github.com/matplotlib/matplotlib). You can set the target position in realtime by clicking the top-left subplot, and pause or resume the simulation by clicking the corresponding button.
 
-<div style="text-align: center;">
-  <img src="fig/animation.gif" alt="fig3" style="width:50%; height:auto;">
-</div>
+<p align="center">
+<img src="fig/animation.gif" width="300">
+</p>
 
 ## Interface to QP solver
 ``Viability_IK`` utilizes [CasADi](https://github.com/casadi/casadi) as an interface to QP solvers. 
@@ -91,7 +88,7 @@ For building and running Python wrapper, the follows are needed:
 * [Matplotlib](https://github.com/matplotlib/matplotlib): A comprehensive library for creating static, animated, and interactive visualizations in Python.
 
 Moreover, the following packages are embedded in our code, so you do not need to install them separately:
-* [cddlib](https://github.com/cddlib/cddlib): An efficient implementation of the Double Description Method for generating all vertices (i.e. extreme points) and extreme rays of a general convex polyhedron, and vice versa.
+* [cddlib](https://github.com/cddlib/cddlib): An efficient implementation of the Double Description Method for generating all vertices (i.e., extreme points) and extreme rays of a general convex polyhedron, and vice versa.
 * [eigen-cddlib](https://github.com/vsamy/eigen-cddlib): A simple wrapper to use Eigen matrix with cddlib.
 
 

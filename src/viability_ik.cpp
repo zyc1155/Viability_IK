@@ -21,7 +21,7 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
 
     m = A_.rows();
     n = A_.cols();
-    non_zero_h_S = 0;
+    non_zero_S = 0;
 
     A = A_;
     t_q_lim = t_q_lim_;
@@ -30,15 +30,15 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
     dt = dt_;
     _result.resize(n);
 
+    // Start offline construction stage
     /********************************************************/
-    // Obtaining \f$ \tilde{\bm{a}}^{\mathrm{max}} \f$.
+    // Obtaining \f$ \tilde{\bm{a}}^{\mathrm{lim}}_u \f$.
     t_a_lim_u = VectorXd::Zero(m);
     milpsolver.problem(2 * n, n);
     for (int i = 0; i < m; i++)
         t_a_lim_u(i) = milp(A.row(i), v_lim, a_lim);
-
     /********************************************************/
-    // Obtaining \f$ \hat{\mathcal{S}} \f$.
+    // Obtaining \f$ \mathcal{S} \f$.
     VectorXd psi = VectorXd::Constant(m, 1e-5);
     Polyhedron poly;
     auto success = poly.setHrep(A, t_q_lim);
@@ -46,17 +46,17 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
         throw std::runtime_error("Vertex calculation Failed!");
 
     auto vrep = poly.vrep();
-    cart_h_S = vrep.first.rows();
+    cart_S = vrep.first.rows();
 
     {
         VectorXd err;
         VectorXi s;
-        for (int i = 0; i < cart_h_S; ++i)
+        for (int i = 0; i < cart_S; ++i)
         {
             err = A * vrep.first.row(i).transpose() - t_q_lim + psi;
             s = (err.array() >= .0).cast<int>();
-            h_S.push_back(s.sparseView());
-            non_zero_h_S += h_S.back().nonZeros();
+            S.push_back(s.sparseView());
+            non_zero_S += S.back().nonZeros();
         }
     }
     /********************************************************/
@@ -66,9 +66,9 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
     Eigen::Map<Eigen::VectorXd>(ca_a_lim.ptr(), n, 1) = a_lim;
     Eigen::Map<Eigen::VectorXd>(ca_t_a_lim_u.ptr(), m, 1) = t_a_lim_u;
 
-    t_a_lim = qp(ca_A, ca_a_lim, ca_t_a_lim_u, h_S);
+    t_a_lim = qp(ca_A, ca_a_lim, ca_t_a_lim_u, S);
     /********************************************************/
-
+    // Constructing the QP solver for online computation stage
     casadi::Dict opts;
     opts["osqp.verbose"] = false;
     opts["osqp.eps_abs"] = 1e-4;
@@ -94,16 +94,14 @@ bool VIABILITY_IK::solve(MatrixXd const &J, VectorXd const &b, VectorXd const &q
             throw std::invalid_argument("J.rows() != b.size()");
 
         MatrixXd H = J.transpose() * J;
-        H += VectorXd::Constant(n, 0.01).asDiagonal();
-        VectorXd g = -b.transpose() * J;
-
-        VectorXd dq_max, dq_min;
+        H += VectorXd::Constant(n, 0.01).asDiagonal();// Add damping factor for singular configuration
+        VectorXd g = -b.transpose() * J; 
 
         // VectorXd::Constant(n, 1e-6) is added to improve the numerical stability.
         dq_max = v_lim.cwiseMin(dt * a_lim + dq0) + VectorXd::Constant(n, 1e-6);
         dq_min = (-v_lim).cwiseMax(-dt * a_lim + dq0) - VectorXd::Constant(n, 1e-6);
 
-        VectorXd t_q = t_q_lim - A * q0 - dt / 2 * A * dq0;
+        VectorXd t_q = t_q_lim - A * q0 - dt / 2 * A * dq0; // \tilde{\bm{q}}
         dq_max_A = (-dt / 2) * t_a_lim + (2 * t_a_lim.cwiseProduct((t_a_lim * dt * dt / 8).cwiseMax(t_q))).cwiseSqrt();
 
         casadi::DM ca_H = casadi::DM::zeros(n, n), ca_g = casadi::DM::zeros(n), lbx = casadi::DM::zeros(n), ubx = casadi::DM::zeros(n), uba = casadi::DM::zeros(m);
@@ -214,13 +212,13 @@ double VIABILITY_IK::milp(MatrixXd const &A_i, VectorXd const &v_lim, VectorXd c
     return milpsolver.get_bestobj();
 }
 
-VectorXd VIABILITY_IK::qp(casadi::DM const &A_, casadi::DM const &a_lim_, casadi::DM const &t_a_lim_u_, std::vector<SparseVector<int>> const &h_S_)
+VectorXd VIABILITY_IK::qp(casadi::DM const &A_, casadi::DM const &a_lim_, casadi::DM const &t_a_lim_u_, std::vector<SparseVector<int>> const &S_)
 {
     // The original objective function is in least square form.
     // Thus, the following convention is utilized:
     // \f$ \frac{1}{2} \| \bm{R}_{qp}\bm{x}-\bm{s}_{qp} \|^2_{\bm{W}_{qp}} \propto \frac{1}{2}{\bm{x}^T\bm{H}_{qp}\bm{x}} + {\bm{g}_{qp}^T\bm{x}} \f$,
     // where \f$ \bm{H}_{qp}= \bm{R}_{qp}^T\bm{W}_{qp}bm{R}_{qp} \f$ and \f$ \bm{g}_{qp}= -\bm{R}_{qp}^T\bm{W}_{qp}\bm{s}_{qp} \f$.
-    casadi::DM R_qp(m + 1 + cart_h_S * n, m + 1 + cart_h_S * n), s_qp(m + 1 + cart_h_S * n, 1), W_qp(m + 1 + cart_h_S * n, m + 1 + cart_h_S * n);
+    casadi::DM R_qp(m + 1 + cart_S * n, m + 1 + cart_S * n), s_qp(m + 1 + cart_S * n, 1), W_qp(m + 1 + cart_S * n, m + 1 + cart_S * n);
     for (int i = 0; i < m; i++)
     {
         R_qp(i, i) = 1;
@@ -235,9 +233,9 @@ VectorXd VIABILITY_IK::qp(casadi::DM const &A_, casadi::DM const &a_lim_, casadi
 
     casadi::DM para = casadi::DM::mtimes(R_qp.T(), W_qp);
     casadi::DM H_qp = casadi::DM::mtimes(para, R_qp), g_qp = -casadi::DM::mtimes(para, s_qp);
-    casadi::DM lbx = casadi::DM::vertcat({-casadi::DM::inf(m), 0, casadi::DM::repmat(-a_lim_, cart_h_S, 1)});
-    casadi::DM ubx = casadi::DM::vertcat({t_a_lim_u_, c0, casadi::DM::repmat(a_lim_, cart_h_S, 1)});
-    casadi::DM A_qp(m + non_zero_h_S, m + 1 + cart_h_S * n), uba = casadi::DM::zeros(m + non_zero_h_S);
+    casadi::DM lbx = casadi::DM::vertcat({-casadi::DM::inf(m), 0, casadi::DM::repmat(-a_lim_, cart_S, 1)});
+    casadi::DM ubx = casadi::DM::vertcat({t_a_lim_u_, c0, casadi::DM::repmat(a_lim_, cart_S, 1)});
+    casadi::DM A_qp(m + non_zero_S, m + 1 + cart_S * n), uba = casadi::DM::zeros(m + non_zero_S);
 
     // \f$ \tilde{c} \tilde{\bm{a}}^{\mathrm{max}} \leq \tilde{\bm{a}}^{\mathrm{lim}} \f$
     A_qp(casadi::Slice(0, m), casadi::Slice(0, m)) = -1 * casadi::DM::eye(m);
@@ -245,10 +243,10 @@ VectorXd VIABILITY_IK::qp(casadi::DM const &A_, casadi::DM const &a_lim_, casadi
 
     int index = m;
     // \f$ \forall \bm{s} \in \hat{\mathcal{S}} \f$
-    for (int i = 0; i < cart_h_S; i++)
+    for (int i = 0; i < cart_S; i++)
     {
         // Only construct the constraints corresponding to \f$ s_j=1 \f$, where \f$ j \f$ corresponds to it.index()
-        for (SparseVector<int>::InnerIterator it(h_S_[i]); it; ++it)
+        for (SparseVector<int>::InnerIterator it(S_[i]); it; ++it)
         {
             A_qp(index, it.index()) = 1.0;                                                                    // Coefficients corresponding to \f$ \tilde{\bm{a}}^{\mathrm{lim}} \f$
             A_qp(index, casadi::Slice(m + 1 + i * n, m + 1 + (i + 1) * n)) = A_(it.index(), casadi::Slice()); // Coefficients corresponding to \f$ \hat{\ddot{\bm{q}}}_i \f$
@@ -270,7 +268,7 @@ VectorXd VIABILITY_IK::qp(casadi::DM const &A_, casadi::DM const &a_lim_, casadi
     args["ubx"] = ubx;
     args["a"] = A_qp;
     args["uba"] = uba;
-    args["x0"] = casadi::DM::vertcat({c0 * t_a_lim_u_, c0, casadi::DM::zeros(cart_h_S * n)});
+    args["x0"] = casadi::DM::vertcat({c0 * t_a_lim_u_, c0, casadi::DM::zeros(cart_S * n)});
 
     casadi::DMDict res = solver(args);
 

@@ -16,10 +16,10 @@ public:
     // Algorithm 1
     void setProblem(MatrixXd const &A, VectorXd const &t_q_lim, VectorXd const &v_lim, VectorXd const &a_lim, double dt);
 
-    // IK
+    // IK, used in every loop of online computation stage
     bool solve(MatrixXd const &J, VectorXd const &b, VectorXd const &q0, VectorXd const &dq0);
 
-    // Get \f$ \tilde{\bm{a}}^{\mathrm{max}} \f$
+    // Get \f$ \tilde{\bm{a}}^{\mathrm{lim}}_u \f$
     VectorXd get_t_a_lim_u();
 
     // Get \f$ \tilde{\bm{a}}^{\mathrm{lim}} \f$
@@ -50,25 +50,26 @@ private:
      *
      * OSQP is utilized as the QP solver.
      */
-    VectorXd qp(casadi::DM const &A, casadi::DM const &a_lim, casadi::DM const &t_a_lim_u, std::vector<SparseVector<int>> const &h_S);
+    VectorXd qp(casadi::DM const &A, casadi::DM const &a_lim, casadi::DM const &t_a_lim_u, std::vector<SparseVector<int>> const &S);
 
     casadi::DM EigenMatrixToCasadiDM(MatrixXd const &A);
 
     bool initialized;
-    int m;            // \f$ m \f$
-    int n;            // \f$ n \f$
-    int cart_h_S;     // Cardinality of \f$ \mathcal{S} \f$
-    int non_zero_h_S; // Total number of non-zeros of all elements belonging to \f$ \hat{\mathcal{S}} \f$
-    double dt;        // Sampling time \f$ T \f$
+    int m;          // \f$ m \f$
+    int n;          // \f$ n \f$
+    int cart_S;     // Cardinality of \f$ \mathcal{S} \f$
+    int non_zero_S; // Total number of non-zeros of all elements belonging to \f$ \mathcal{S} \f$
+    double dt;      // Sampling time \f$ T \f$
 
-    MatrixXd A;                         // \f$ \bm{A} \f$
-    VectorXd t_q_lim;                   // \f$ \tilde{\bm{q}}^{\mathrm{lim}} \f$
-    VectorXd v_lim;                     // \f$ \bm{v}}^{\mathrm{lim}} \f$
-    VectorXd a_lim;                     // \f$ \bm{a}}^{\mathrm{lim}} \f$
-    VectorXd t_a_lim_u;                 // \f$ \tilde{\bm{a}}^{\mathrm{lim}}_u \f$
-    VectorXd t_a_lim;                   // \f$ \tilde{\bm{a}}^{\mathrm{lim}} \f$
-    VectorXd dq_max_A;                  // \f$ \underline{\bm{q}}^{k-1} \f$
-    std::vector<SparseVector<int>> h_S; // \f$ \hat{\mathcal{S}} \f$
+    MatrixXd A;                       // \f$ \bm{A} \f$
+    VectorXd t_q_lim;                 // \f$ \tilde{\bm{q}}^{\mathrm{lim}} \f$
+    VectorXd v_lim;                   // \f$ \bm{v}}^{\mathrm{lim}} \f$
+    VectorXd a_lim;                   // \f$ \bm{a}}^{\mathrm{lim}} \f$
+    VectorXd t_a_lim_u;               // \f$ \tilde{\bm{a}}^{\mathrm{lim}}_u \f$
+    VectorXd t_a_lim;                 // \f$ \tilde{\bm{a}}^{\mathrm{lim}} \f$
+    VectorXd dq_max_A;                // \f$ \overline{\bm{q}}^{k-1}_A \f$
+    VectorXd dq_max, dq_min;          // \f$ \overline{\bm{q}}^{k-1}, \underline{\bm{q}}^{k-1} \f$
+    std::vector<SparseVector<int>> S; // \f$ \mathcal{S} \f$
 
     VectorXd _result;
     casadi::DM ca_A; // \f$ \bm{A} \f$ stored in casadi form
