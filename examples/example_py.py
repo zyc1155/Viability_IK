@@ -5,44 +5,48 @@ import numpy as np
 
 import py_viability_ik  # import the python wrapper of viability_ik
 
-dt = 0.005  # sampling interval
+dt = 0.005  # sampling interval of IK
+simulation_time = 0.0  # simulation time
 ratio_simulation_control = 10  #  the lower the value, the higher the plot update frequency, and the higher the needed computation power
-v_lim = np.array([1, 2])  # \bm{v}}^{\mathrm{lim}}
-a_lim = np.array([15, 12])  # \bm{a}}^{\mathrm{lim}}
-p_ref = np.array([-1.0, 0.8])  # initial target position
-
-
-simulation_time = 0
-
-# compound joint constraint parameters:
-A = np.array(
-    [
-        [1.38637, 1],
-        [-2.89855, -1.21212],
-        [-1, -0],
-        [0.0, 1.0],
-        [0.0, -1.0],
-        [2.98413, 1],
-    ]
-)
-t_q_lim = np.array([3.73353, -1, 0, np.pi / 2, -0.01, 6.95302])
-
-# initial values
-q_ref = np.zeros(2)
-q0 = np.array([1.45, 1.18])
-q1 = np.zeros(2)
-dq0 = np.zeros(2)
-dq1 = np.zeros(2)
-ddq1 = np.zeros(2)
-position1, position2 = np.zeros(2)
+v_lim = np.array([1, 2], dtype=np.float64)  # \bm{v}}^{\mathrm{lim}}
+a_lim = np.array([15, 12], dtype=np.float64)  # \bm{a}}^{\mathrm{lim}}
+p_ref = np.array([-1.0, 0.8], dtype=np.float64)  # initial target position
 
 l1, l2 = 1.0, 1.0  # Lengths of the robot arm segments
 base_x = [-1.0, -1.0, 1.5, 1.5]  # obstacle parameter
 base_y = [1, 0, 0, 0.5]  # obstacle parameter
 
-ax1_lim = [[-1.6, 1.9], [-1.0, 2.5]]
-ax2_lim = [[-0.1, 2.4], [-0.5, 2.0]]
+# Construct the polyhedron corresponding to compound joint constraint
+vertices = [
+    [0.0, np.pi / 2],
+    [0.0, 0.825],
+    [0.34, 0.01],
+    [2.33, 0.01],
+    [2.01, 0.94],
+    [1.56, np.pi / 2],
+]
 
+# use double description method to convert V-representation to H-representation
+poly = py_viability_ik.Polyhedron() 
+poly.setVrep(np.array(vertices), np.ones(len(vertices)))
+hrep = poly.hrep()
+
+# obtain compound joint constraint parameters from the polyhedron
+A = hrep[0]
+t_q_lim = hrep[1]
+
+vik = py_viability_ik.VIABILITY_IK(A, t_q_lim, v_lim, a_lim, dt)
+
+# initial values
+q_ref = np.zeros(2, dtype=np.float64)
+q0 = np.array([1.45, 1.18], dtype=np.float64)
+q1 = np.zeros(2, dtype=np.float64)
+dq0 = np.zeros(2, dtype=np.float64)
+dq1 = np.zeros(2, dtype=np.float64)
+ddq1 = np.zeros(2, dtype=np.float64)
+position1, position2 = np.zeros(2, dtype=np.float64)
+
+# initialize figure
 fig = plt.figure(figsize=(16, 8))
 gs = fig.add_gridspec(2, 2, height_ratios=[2, 1])
 
@@ -52,15 +56,19 @@ ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[1, 0])
 ax4 = fig.add_subplot(gs[1, 1])
 
-#set legend
+# set axis limits
+ax1_lim = [[-1.6, 1.9], [-1.0, 2.5]]
+ax2_lim = [[-0.1, 2.4], [-0.5, 2.0]]
+
+# set legend
 ax1.scatter([], [], color="red", label="Taregt position")
 ax1.plot([], [], "blue", label="Joint 1")
 ax1.plot([], [], "green", label="Joint 2")
 fig.legend(
-    loc='center',            # Place the legend at the center
+    loc="center",  # Place the legend at the center
     bbox_to_anchor=(0.5, 0.5),  # Center it in the figure
-    frameon=True,            # Optional: add a frame around the legend
-    fontsize=12              # Adjust font size
+    frameon=True,  # Optional: add a frame around the legend
+    fontsize=12,  # Adjust font size
 )
 
 ax_button = plt.axes([0.45, 0.01, 0.1, 0.05])  # Adjust the position and size as needed
@@ -72,8 +80,6 @@ robot_plot = []
 line2 = []
 
 output_data = [[], [], [], [], []]
-
-vik = py_viability_ik.VIABILITY_IK(A, t_q_lim, v_lim, a_lim, dt)
 
 
 def obtain_poly(pt):
@@ -124,17 +130,11 @@ def divide_polygon_edges(pt, n):
     return [list(map(float, point)) for point in all_points]
 
 
-pt = [
-    [0.0, np.pi / 2],
-    [0.0, 0.825],
-    [0.345, 0.0],
-    [2.33, 0.0],
-    [2.015, 0.94],
-    [1.56, np.pi / 2],
-]
-point_x, point_y = obtain_poly(pt)
-divided_joint_points = divide_polygon_edges(pt, 10)
-divided_task_points = divided_joint_points
+point_x, point_y = obtain_poly(vertices)
+divided_joint_points = divide_polygon_edges(vertices, 10)
+divided_task_points = (
+    divided_joint_points  # Initialize with the same dimensions of divided_joint_points
+)
 
 
 def jacobian_matrix(q0):
@@ -288,7 +288,6 @@ def update(frame):
     output_data[3].append(ddq1[0])
     output_data[4].append(ddq1[1])
 
-    success = True
     for i in range(ratio_simulation_control):
         success, dq1 = differential_inverse_kinematics(p_ref, q0, dq0, position2)
         ddq1 = (dq1 - dq0) / dt
@@ -361,4 +360,3 @@ ani = FuncAnimation(
 )
 
 plt.show()
-
