@@ -28,7 +28,10 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
     v_lim = v_lim_;
     a_lim = a_lim_;
     dt = dt_;
-    _result.resize(n);
+    _result = VectorXd::Zero(n);
+    _res["x"] = casadi::DM::zeros(n);
+    _res["lam_x"] = casadi::DM::zeros(n);
+    _res["lam_a"] = casadi::DM::zeros(m);
 
     // Start offline construction stage
     /********************************************************/
@@ -70,15 +73,13 @@ void VIABILITY_IK::setProblem(MatrixXd const &A_, VectorXd const &t_q_lim_, Vect
     /********************************************************/
     // Constructing the QP solver for online computation stage
     casadi::Dict opts;
-    opts["osqp.verbose"] = false;
-    opts["osqp.eps_abs"] = 1e-4;
-    opts["osqp.eps_rel"] = 1e-4;
-    opts["osqp.eps_prim_inf"] = 1e-5;
-    opts["osqp.eps_dual_inf"] = 1e-5;
+    opts["error_on_fail"] = false;
+    opts["print_time"] = false;
+    opts["printLevel"] = "none";
 
     casadi::SpDict qp({{"h", casadi::Sparsity::dense(n, n)},
                        {"a", ca_A.sparsity()}});
-    qpsolver = casadi::conic("qp_solver", "osqp", qp, opts);
+    qpsolver = casadi::conic("qp_solver", "qpoases", qp, opts);
 
     initialized = true;
 }
@@ -94,12 +95,11 @@ bool VIABILITY_IK::solve(MatrixXd const &J, VectorXd const &b, VectorXd const &q
             throw std::invalid_argument("J.rows() != b.size()");
 
         MatrixXd H = J.transpose() * J;
-        H += VectorXd::Constant(n, 0.01).asDiagonal();// Add damping factor for singular configuration
-        VectorXd g = -b.transpose() * J; 
+        H += VectorXd::Constant(n, 0.01).asDiagonal(); // Add damping factor for singular configuration
+        VectorXd g = -b.transpose() * J;
 
-        // VectorXd::Constant(n, 1e-6) is added to improve the numerical stability.
-        dq_max = v_lim.cwiseMin(dt * a_lim + dq0) + VectorXd::Constant(n, 1e-6);
-        dq_min = (-v_lim).cwiseMax(-dt * a_lim + dq0) - VectorXd::Constant(n, 1e-6);
+        dq_max = v_lim.cwiseMin(dt * a_lim + dq0);
+        dq_min = (-v_lim).cwiseMax(-dt * a_lim + dq0);
 
         VectorXd t_q = t_q_lim - A * q0 - dt / 2 * A * dq0; // \tilde{\bm{q}}
         dq_max_A = (-dt / 2) * t_a_lim + (2 * t_a_lim.cwiseProduct((t_a_lim * dt * dt / 8).cwiseMax(t_q))).cwiseSqrt();
@@ -119,9 +119,14 @@ bool VIABILITY_IK::solve(MatrixXd const &J, VectorXd const &b, VectorXd const &q
         args["uba"] = uba;
         args["a"] = ca_A;
 
-        casadi::DMDict res = qpsolver(args);
+        // For warm start
+        args["x0"] = _res["x"];
+        args["lam_x0"] = _res["lam_x"];
+        args["lam_a0"] = _res["lam_a"];
+
+        _res = qpsolver(args);
         for (int i = 0; i < n; i++)
-            _result(i) = (double)res["x"](i);
+            _result(i) = (double)_res["x"](i);
 
         return qpsolver.stats()["success"];
     }

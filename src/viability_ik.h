@@ -16,7 +16,7 @@ public:
     // Algorithm 1
     void setProblem(MatrixXd const &A, VectorXd const &t_q_lim, VectorXd const &v_lim, VectorXd const &a_lim, double dt);
 
-    // IK, used in every loop of online computation stage
+    // IK, used in every loop of online computation stage. qpOASES is utilized as the QP solver.
     bool solve(MatrixXd const &J, VectorXd const &b, VectorXd const &q0, VectorXd const &dq0);
 
     // Get \f$ \tilde{\bm{a}}^{\mathrm{lim}}_u \f$
@@ -71,6 +71,7 @@ private:
     VectorXd dq_max, dq_min;          // \f$ \overline{\bm{q}}^{k-1}, \underline{\bm{q}}^{k-1} \f$
     std::vector<SparseVector<int>> S; // \f$ \mathcal{S} \f$
 
+    casadi::DMDict _res;
     VectorXd _result;
     casadi::DM ca_A; // \f$ \bm{A} \f$ stored in casadi form
     casadi::Function qpsolver;

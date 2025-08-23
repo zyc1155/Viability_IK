@@ -1,6 +1,8 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
+#include <utility>
 #include "viability_ik.h"
+#include "eigen-cddlib/Polyhedron.h"
 
 namespace py = pybind11;
 
@@ -17,4 +19,13 @@ PYBIND11_MODULE(py_viability_ik, m)
          .def("result", &VIABILITY_IK::result)
          .def("get_t_a_lim_u", &VIABILITY_IK::get_t_a_lim_u)
          .def("get_t_a_lim", &VIABILITY_IK::get_t_a_lim);
+
+     py::class_<Polyhedron>(m, "Polyhedron")
+         .def(py::init<>())
+         .def("setHrep", &Polyhedron::setHrep,
+              py::arg("A"), py::arg("b"))
+         .def("setVrep", &Polyhedron::setVrep,
+              py::arg("A"), py::arg("b"))
+         .def("vrep", &Polyhedron::vrep)
+         .def("hrep", &Polyhedron::hrep);
 }

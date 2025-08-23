@@ -1,6 +1,5 @@
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(CasADi REQUIRED)
-find_package(osqp REQUIRED)
 find_package(SCIP REQUIRED)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
