@@ -7,7 +7,7 @@
 </p>
 
 These constraints may conflict with each other and result in infeasible solutions of IK, which can subsequently produce unpredictable motions.
-``Viability_IK`` ensures that the robot state is **viable**, guaranteeing the existence of solutions that do not violate the given constraints. Please check the accompanying [paper](https://jxiv.jst.go.jp/index.php/jxiv/preprint/view/1053) for more details.
+``Viability_IK`` ensures that the robot state is **viable**, guaranteeing the existence of solutions that do not violate the given constraints. Please check the accompanying [paper](https://rdcu.be/eZS8T) for more details.
 
 A simple simulation program is provided in the ``examples`` folder as ``example_py.py``, which can be launched after the installation of ``Viability_IK``.
 As in the following screenshot of the simulation, the solution of ``Viability_IK`` satisfies all the constraints while tracking the target position (red point). The **position constraint** is indicated by the black dashed polygon in the **top-right** subplot. The **velocity constraint** and **acceleration constraint** are represented by the dot-dashed lines in the **bottom-left** and **bottom-right** subplots, respectively.
@@ -98,12 +98,14 @@ Moreover, the following packages are embedded in our code, so you do not need to
 
 ## Citation
 ```sh
-@article{Zhang_2025_ViabilityIK,
+@article{Zhang_2026_ViabilityIK,
   title={Ensuring Viability: A {QP}-Based Inverse Kinematics for Handling Joint Range, Velocity and Acceleration Limits, as Well as Whole-body Collision Avoidance},
   author={Zhang, Yachen and Kikuuwe, Ryo},
-  publisher={Jxiv},
-  year={2025},
-  doi={10.51094/jxiv.1053},
+  journal={Journal of Intelligent \& Robotic Systems},
+  publisher={Springer},
+  volume={112},
+  number={16},
+  year={2026}
 }
 ```
 
